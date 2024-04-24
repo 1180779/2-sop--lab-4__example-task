@@ -1,6 +1,7 @@
 #include "l4-common.c"
 #include <netdb.h>
 #include <netinet/in.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 
@@ -30,19 +31,43 @@ int main(int argc, char **argv) {
         usage(argv[0]);
     }
 
-    // char *key = argv[2];
-    // char *address = argv[1];
+    char *key = argv[2];
+    uint64_t key_valid = strtoul(key, NULL, 10);
 
+    printf("port = %d\n", port);
+    printf("key_valid = %lu\n", key_valid);
 
+    printf("Binding the socket...\n");
     int fd_server = bind_tcp_socket(port, 1);
-    int fd_client = add_new_client(fd_server);
+
+    for(int k = 0; k < 5; ++k)
+    {
+        printf("\nWaiting for client...\n");
+        int fd_client = add_new_client(fd_server);
+        printf("Accepted a client!\n");
+
+        char buff[BUFF_SIZE + 1] = { 0 };
+        int read = bulk_read(fd_client, buff, BUFF_SIZE);
+        printf("received = %d bytes\n\n", read);
+
+        printf("name = %s\nkey = %s\n", buff, buff + MESSAGE_OFFSET);
+        uint64_t key_user = strtoul(buff + MESSAGE_OFFSET, NULL, 10);
+        if(key_valid == key_user)
+        {
+            printf("correct key! sending the message back.\n");
+            bulk_write(fd_client, buff, BUFF_SIZE);
+        }
+        else
+        {
+            printf("invalid key!\n");
+            close(fd_client);
+            close(fd_server);
+            return EXIT_FAILURE;
+        }
+        printf("Disconnecting...\n");
+        close(fd_client); 
+    }
     close(fd_server);
-
-    // char buff[BUFF_SIZE];
-    // while(bulk_read(fd_client, buff, BUFF_SIZE - 1) > 0)
-        // printf("%s", buff);
-    close(fd_client); 
-
 
     return EXIT_SUCCESS;
 }
